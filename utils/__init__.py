@@ -1,7 +1,17 @@
+import json
+import os
+
 import openai
-from .write_logprobs import *
+
 from .featurize import *
 from .n_gram import *
+
+try:
+    from .write_logprobs import *
+except Exception:
+    # Some workflows only need the lightweight helpers and should not fail
+    # because the gated Llama tokenizer is unavailable.
+    pass
 
 openai_path = ""
 if os.path.exists("../../openai.config"):
