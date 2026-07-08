@@ -5,18 +5,25 @@ import tiktoken
 import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer
+from functools import lru_cache
 
 
 tokenizer = tiktoken.encoding_for_model("davinci")
-
-llama_tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-vocab_map = {}
-vocab = llama_tokenizer.vocab
-for token in vocab:
-    idx = vocab[token]
-    vocab_map[idx] = token
+
+@lru_cache(maxsize=1)
+def _get_llama_tokenizer():
+    return AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+
+
+@lru_cache(maxsize=1)
+def _get_vocab_map():
+    llama_tokenizer = _get_llama_tokenizer()
+    vocab_map = {}
+    for token, idx in llama_tokenizer.vocab.items():
+        vocab_map[idx] = token
+    return vocab_map
 
 
 def write_logprobs(text, file, model):
@@ -52,6 +59,9 @@ def write_logprobs(text, file, model):
 
 
 def write_llama_logprobs(text, file, model):
+    llama_tokenizer = _get_llama_tokenizer()
+    vocab_map = _get_vocab_map()
+
     with torch.no_grad():
         encodings = llama_tokenizer(text, return_tensors="pt").to(device)
         logits = F.softmax(model(encodings["input_ids"]).logits, dim=2)
